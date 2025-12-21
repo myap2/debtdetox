@@ -13,6 +13,18 @@ export type PayoffStrategy = 'snowball' | 'avalanche' | 'custom';
 
 export type SprintStatus = 'active' | 'completed' | 'abandoned';
 
+export type InvestmentType =
+  | 'stocks'
+  | 'bonds'
+  | 'retirement_401k'
+  | 'retirement_ira'
+  | 'real_estate'
+  | 'savings'
+  | 'crypto'
+  | 'custom';
+
+export type TaxStatus = 'taxable' | 'tax_deferred' | 'tax_free';
+
 export interface Session {
   id: string;
   created_at: string;
@@ -91,6 +103,24 @@ export interface NotificationPreferences {
   reminder_days_before: number;
   weekly_summary: boolean;
   created_at: string;
+}
+
+export interface Investment {
+  id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  name: string;
+  type: InvestmentType;
+  initial_balance_cents: number;
+  monthly_contribution_cents: number;
+  annual_return_bps: number; // basis points (700 = 7.00%)
+  tax_status: TaxStatus;
+  tax_rate_bps: number; // basis points (2500 = 25%)
+  inflation_rate_bps: number; // basis points (300 = 3%)
+  target_amount_cents: number | null;
+  target_years: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // Payoff Engine Types
@@ -210,6 +240,15 @@ export interface Database {
           weekly_summary?: boolean;
         };
         Update: Partial<Omit<NotificationPreferences, 'id' | 'created_at'>>;
+      };
+      investments: {
+        Row: Investment;
+        Insert: Omit<Investment, 'id' | 'created_at' | 'updated_at'> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<Investment, 'id' | 'created_at'>>;
       };
     };
   };

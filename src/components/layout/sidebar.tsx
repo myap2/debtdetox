@@ -8,6 +8,7 @@ import {
   CreditCard,
   Target,
   Flame,
+  TrendingUp,
   Settings,
   LogOut,
   LogIn,
@@ -20,6 +21,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/debts', label: 'Debts', icon: CreditCard },
   { href: '/plan', label: 'Payoff Plan', icon: Target },
+  { href: '/invest', label: 'Invest', icon: TrendingUp },
   { href: '/detox', label: 'Detox Sprint', icon: Flame },
 ];
 

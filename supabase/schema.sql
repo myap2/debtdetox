@@ -79,6 +79,25 @@ CREATE TABLE IF NOT EXISTS detox_wins (
   logged_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Investments
+CREATE TABLE IF NOT EXISTS investments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_type TEXT NOT NULL CHECK (owner_type IN ('session', 'user')),
+  owner_id UUID NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('stocks', 'bonds', 'retirement_401k', 'retirement_ira', 'real_estate', 'savings', 'crypto', 'custom')),
+  initial_balance_cents BIGINT NOT NULL DEFAULT 0,
+  monthly_contribution_cents BIGINT NOT NULL DEFAULT 0,
+  annual_return_bps INTEGER NOT NULL DEFAULT 700,
+  tax_status TEXT NOT NULL DEFAULT 'taxable' CHECK (tax_status IN ('taxable', 'tax_deferred', 'tax_free')),
+  tax_rate_bps INTEGER NOT NULL DEFAULT 2500,
+  inflation_rate_bps INTEGER NOT NULL DEFAULT 300,
+  target_amount_cents BIGINT,
+  target_years INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Notification Preferences
 CREATE TABLE IF NOT EXISTS notification_preferences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -94,6 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_debts_owner ON debts(owner_type, owner_id);
 CREATE INDEX IF NOT EXISTS idx_plans_owner ON plans(owner_type, owner_id);
 CREATE INDEX IF NOT EXISTS idx_payments_owner ON payments(owner_type, owner_id);
 CREATE INDEX IF NOT EXISTS idx_detox_sprints_owner ON detox_sprints(owner_type, owner_id);
+CREATE INDEX IF NOT EXISTS idx_investments_owner ON investments(owner_type, owner_id);
 
 -- Row Level Security Policies
 
@@ -105,6 +125,7 @@ ALTER TABLE plan_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE detox_sprints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE detox_wins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 
 -- Sessions policies
@@ -239,6 +260,31 @@ CREATE POLICY "Wins can be created" ON detox_wins
     )
   );
 
+-- Investments policies
+CREATE POLICY "Investments are viewable by owner" ON investments
+  FOR SELECT USING (
+    (owner_type = 'user' AND owner_id = auth.uid()) OR
+    (owner_type = 'session')
+  );
+
+CREATE POLICY "Investments can be created" ON investments
+  FOR INSERT WITH CHECK (
+    (owner_type = 'user' AND owner_id = auth.uid()) OR
+    (owner_type = 'session')
+  );
+
+CREATE POLICY "Investments can be updated by owner" ON investments
+  FOR UPDATE USING (
+    (owner_type = 'user' AND owner_id = auth.uid()) OR
+    (owner_type = 'session')
+  );
+
+CREATE POLICY "Investments can be deleted by owner" ON investments
+  FOR DELETE USING (
+    (owner_type = 'user' AND owner_id = auth.uid()) OR
+    (owner_type = 'session')
+  );
+
 -- Notification Preferences policies
 CREATE POLICY "Notification prefs are viewable by owner" ON notification_preferences
   FOR SELECT USING (user_id = auth.uid());
@@ -263,4 +309,7 @@ CREATE TRIGGER update_debts_updated_at BEFORE UPDATE ON debts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_plans_updated_at BEFORE UPDATE ON plans
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_investments_updated_at BEFORE UPDATE ON investments
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
