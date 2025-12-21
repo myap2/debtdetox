@@ -69,10 +69,12 @@ export default function DetoxPage() {
     no_entertainment: false,
     no_shopping: false,
   });
+  const [isStartingSprint, setIsStartingSprint] = useState(false);
 
   // Log win form state
   const [winDescription, setWinDescription] = useState('');
   const [winAmount, setWinAmount] = useState('');
+  const [isSubmittingWin, setIsSubmittingWin] = useState(false);
 
   async function fetchSprints() {
     try {
@@ -92,6 +94,8 @@ export default function DetoxPage() {
   }, []);
 
   async function handleStartSprint() {
+    if (isStartingSprint) return; // Prevent double-submit
+
     const days = parseInt(sprintDays, 10);
     if (isNaN(days) || days < 1 || days > 365) {
       toast.error('Please enter a valid number of days (1-365)');
@@ -102,6 +106,7 @@ export default function DetoxPage() {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + days);
 
+    setIsStartingSprint(true);
     try {
       const response = await fetch('/api/detox', {
         method: 'POST',
@@ -123,10 +128,14 @@ export default function DetoxPage() {
       fetchSprints();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to start sprint');
+    } finally {
+      setIsStartingSprint(false);
     }
   }
 
   async function handleLogWin() {
+    if (isSubmittingWin) return; // Prevent double-submit
+
     const activeSprint = sprints.find((s) => s.status === 'active');
     if (!activeSprint) return;
 
@@ -135,6 +144,7 @@ export default function DetoxPage() {
       return;
     }
 
+    setIsSubmittingWin(true);
     try {
       const response = await fetch(`/api/detox/${activeSprint.id}/wins`, {
         method: 'POST',
@@ -157,6 +167,8 @@ export default function DetoxPage() {
       fetchSprints();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to log win');
+    } finally {
+      setIsSubmittingWin(false);
     }
   }
 
@@ -493,10 +505,12 @@ export default function DetoxPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNewSprintDialog(false)}>
+            <Button variant="outline" onClick={() => setShowNewSprintDialog(false)} disabled={isStartingSprint}>
               Cancel
             </Button>
-            <Button onClick={handleStartSprint}>Start Sprint</Button>
+            <Button onClick={handleStartSprint} disabled={isStartingSprint}>
+              {isStartingSprint ? 'Starting...' : 'Start Sprint'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -540,10 +554,12 @@ export default function DetoxPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowLogWinDialog(false)}>
+            <Button variant="outline" onClick={() => setShowLogWinDialog(false)} disabled={isSubmittingWin}>
               Cancel
             </Button>
-            <Button onClick={handleLogWin}>Log Win</Button>
+            <Button onClick={handleLogWin} disabled={isSubmittingWin}>
+              {isSubmittingWin ? 'Logging...' : 'Log Win'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
