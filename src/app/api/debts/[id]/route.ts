@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getOrCreateSession } from '@/lib/session';
+import { logActivity } from '@/lib/activity';
 import { z } from 'zod';
 
 const updateDebtSchema = z.object({
@@ -84,6 +85,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Failed to update debt' }, { status: 500 });
     }
 
+    await logActivity(session, 'debt_updated', {
+      debt_id: data.id,
+      debt_name: data.name,
+    });
+
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error:', error);
@@ -103,7 +109,7 @@ export async function DELETE(
     // First verify ownership
     const { data: existing } = await supabase
       .from('debts')
-      .select('id')
+      .select('id, name')
       .eq('id', id)
       .eq('owner_type', session.type)
       .eq('owner_id', session.id)
@@ -122,6 +128,11 @@ export async function DELETE(
       console.error('Error deleting debt:', error);
       return NextResponse.json({ error: 'Failed to delete debt' }, { status: 500 });
     }
+
+    await logActivity(session, 'debt_deleted', {
+      debt_id: id,
+      debt_name: existing.name,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

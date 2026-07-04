@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getOrCreateSession } from '@/lib/session';
+import { logActivity } from '@/lib/activity';
 import { z } from 'zod';
 
 const updateInvestmentSchema = z.object({
@@ -111,6 +112,12 @@ export async function PATCH(
       );
     }
 
+    await logActivity(session, 'investment_saved', {
+      investment_id: data.id,
+      investment_name: data.name,
+      updated: true,
+    });
+
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error:', error);
@@ -133,7 +140,7 @@ export async function DELETE(
     // First verify ownership
     const { data: existing } = await supabase
       .from('investments')
-      .select('id')
+      .select('id, name')
       .eq('id', id)
       .eq('owner_type', session.type)
       .eq('owner_id', session.id)
@@ -155,6 +162,11 @@ export async function DELETE(
         { status: 500 }
       );
     }
+
+    await logActivity(session, 'investment_deleted', {
+      investment_id: id,
+      investment_name: existing.name,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

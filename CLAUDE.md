@@ -34,19 +34,27 @@ npm run lint         # Run ESLint
 src/
 ├── app/
 │   ├── (marketing)/     # Public pages (landing, login)
-│   ├── (app)/           # Protected app pages (dashboard, debts, plan, invest, detox)
+│   ├── (app)/           # Protected app pages (dashboard, debts + [id], plan, plans + [id], invest, detox, activity, settings)
 │   └── api/             # API routes
 ├── components/
 │   ├── ui/              # shadcn/ui primitives
 │   ├── charts/          # Recharts visualizations
 │   ├── debts/           # Debt management components
-│   ├── invest/          # Investment components
+│   ├── payments/        # Payment logging + history components
+│   ├── plans/           # Saved plan components
+│   ├── invest/          # Investment components (calculator, profiles)
+│   ├── analytics/       # Dashboard analytics section (lazy-loaded)
+│   ├── settings/        # Settings sections (notification preferences)
 │   └── gamification/    # Badges and streak displays
 ├── hooks/               # TanStack Query hooks for data fetching
 ├── lib/
 │   ├── payoff-engine/   # Debt payoff calculation (snowball/avalanche)
 │   ├── investment-engine/ # Investment growth projections
+│   ├── analytics/       # Payment analytics calculations (pure functions)
+│   ├── notifications/   # Preference defaults + pluggable email provider interfaces
 │   ├── gamification/    # Badge definitions
+│   ├── activity.ts      # Server-side activity event logging
+│   ├── plan-snapshot.ts # Builds the JSON snapshot stored with saved plans
 │   └── supabase/        # Client (browser) and server Supabase clients
 └── types/
     └── database.ts      # All TypeScript types for Supabase tables
@@ -57,6 +65,8 @@ src/
 **Session/User Ownership**: All data uses `owner_type` ('session' | 'user') and `owner_id` for ownership. Anonymous users get session-based storage that merges to their account on signup. Use `getOrCreateSession()` from `@/lib/session` in API routes.
 
 **Money in Cents**: All monetary values stored as integers in cents (`balance_cents`, `payment_cents`). Interest rates in basis points (`apr_bps`: 500 = 5.00%).
+
+**Payment Bookkeeping**: Payments store both `amount_cents` (paid) and `balance_delta_cents` (how much the debt balance was actually reduced; overpayments only apply up to the remaining balance). Edits/deletes restore balances from the delta — keep this invariant when touching payment routes.
 
 **Data Flow**: React components → TanStack Query hooks (`use-debts.ts`, `use-payoff-plan.ts`) → API routes → Supabase. Hooks auto-invalidate related queries on mutations.
 

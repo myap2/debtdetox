@@ -1,6 +1,7 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { render } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { DebtForm } from '../debt-form';
 
 // Mock sonner toast
@@ -152,7 +153,13 @@ describe('DebtForm', () => {
 
       const balanceInputs = screen.getAllByPlaceholderText('0.00');
       await userEvent.type(balanceInputs[0], '5000');
+
+      // Clear auto-filled APR before typing custom value
+      await userEvent.clear(balanceInputs[1]);
       await userEvent.type(balanceInputs[1], '24.99');
+
+      // Clear auto-calculated min payment before typing custom value
+      await userEvent.clear(balanceInputs[2]);
       await userEvent.type(balanceInputs[2], '150');
 
       const submitButton = screen.getByRole('button', { name: /add debt/i });
@@ -214,7 +221,13 @@ describe('DebtForm', () => {
 
       const balanceInputs = screen.getAllByPlaceholderText('0.00');
       await userEvent.type(balanceInputs[0], '1000');
+
+      // Clear auto-filled APR before typing custom value
+      await userEvent.clear(balanceInputs[1]);
       await userEvent.type(balanceInputs[1], '20');
+
+      // Clear auto-calculated min payment before typing custom value
+      await userEvent.clear(balanceInputs[2]);
       await userEvent.type(balanceInputs[2], '25');
 
       const submitButton = screen.getByRole('button', { name: /add debt/i });
@@ -226,7 +239,6 @@ describe('DebtForm', () => {
     });
 
     it('should show error toast on API failure', async () => {
-      const { toast } = require('sonner');
       mockFetch.mockResolvedValueOnce({
         ok: false,
         json: async () => ({ error: 'Server error' }),
@@ -239,7 +251,13 @@ describe('DebtForm', () => {
 
       const balanceInputs = screen.getAllByPlaceholderText('0.00');
       await userEvent.type(balanceInputs[0], '1000');
+
+      // Clear auto-filled APR before typing custom value
+      await userEvent.clear(balanceInputs[1]);
       await userEvent.type(balanceInputs[1], '20');
+
+      // Clear auto-calculated min payment before typing custom value
+      await userEvent.clear(balanceInputs[2]);
       await userEvent.type(balanceInputs[2], '25');
 
       const submitButton = screen.getByRole('button', { name: /add debt/i });
@@ -259,6 +277,52 @@ describe('DebtForm', () => {
       fireEvent.click(cancelButton);
 
       expect(mockOnCancel).toHaveBeenCalled();
+    });
+  });
+
+  describe('smart defaults', () => {
+    it('should auto-fill APR with default for credit card on initial render', () => {
+      render(<DebtForm />);
+
+      const balanceInputs = screen.getAllByPlaceholderText('0.00');
+      // APR field should have credit card default (22.99%)
+      expect(balanceInputs[1]).toHaveValue(22.99);
+    });
+
+    it('should auto-calculate minimum payment when balance is entered', async () => {
+      render(<DebtForm />);
+
+      const balanceInputs = screen.getAllByPlaceholderText('0.00');
+      await userEvent.type(balanceInputs[0], '5000');
+
+      // Min payment should be calculated (2% of $5000 = $100, but min $25)
+      await waitFor(() => {
+        expect(balanceInputs[2]).toHaveValue(100);
+      });
+    });
+
+    it('should not auto-fill when editing existing debt', () => {
+      const existingDebt = {
+        id: 'debt-1',
+        name: 'My Credit Card',
+        type: 'credit_card' as const,
+        balance_cents: 250000,
+        apr_bps: 1850, // 18.5%
+        min_payment_cents: 7500, // $75
+        due_day: 20,
+        owner_type: 'session' as const,
+        owner_id: 'session-id',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      render(<DebtForm debt={existingDebt} />);
+
+      const balanceInputs = screen.getAllByPlaceholderText('0.00');
+      // Should keep original APR, not auto-fill with default
+      expect(balanceInputs[1]).toHaveValue(18.5);
+      // Should keep original min payment
+      expect(balanceInputs[2]).toHaveValue(75);
     });
   });
 });

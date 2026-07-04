@@ -51,6 +51,7 @@ export interface Plan {
   id: string;
   owner_type: OwnerType;
   owner_id: string;
+  name: string;
   strategy: PayoffStrategy;
   extra_payment_cents: number;
   is_active: boolean;
@@ -58,10 +59,43 @@ export interface Plan {
   updated_at: string;
 }
 
+// Full data captured when a plan is saved, stored in plan_snapshots.snapshot_json.
+// Dates are ISO strings because the snapshot round-trips through JSONB.
+export interface PlanSnapshotData {
+  strategy: PayoffStrategy;
+  extra_payment_cents: number;
+  debts: (DebtInput & { type: DebtType })[];
+  result: {
+    schedule: SerializedMonthlyBreakdown[];
+    total_interest_cents: number;
+    total_paid_cents: number;
+    debt_free_date: string;
+    months_to_payoff: number;
+    debts_payoff_order: { id: string; name: string; payoff_month: number }[];
+  };
+  comparison: {
+    snowball_interest_cents: number;
+    avalanche_interest_cents: number;
+    snowball_months: number;
+    avalanche_months: number;
+    savings_cents: number;
+    faster_strategy: PayoffStrategy;
+    months_saved: number;
+  };
+}
+
+export interface SerializedMonthlyBreakdown {
+  month: number;
+  date: string;
+  payments: MonthlyPayment[];
+  total_payment_cents: number;
+  total_remaining_cents: number;
+}
+
 export interface PlanSnapshot {
   id: string;
   plan_id: string;
-  snapshot_json: PayoffSchedule;
+  snapshot_json: PlanSnapshotData;
   total_interest_cents: number;
   debt_free_date: string;
   created_at: string;
@@ -73,7 +107,34 @@ export interface Payment {
   owner_id: string;
   debt_id: string;
   amount_cents: number;
+  balance_delta_cents: number;
+  note: string | null;
   paid_at: string;
+  created_at: string;
+}
+
+export type ActivityEventType =
+  | 'debt_added'
+  | 'debt_updated'
+  | 'debt_deleted'
+  | 'payment_recorded'
+  | 'payment_updated'
+  | 'payment_deleted'
+  | 'sprint_started'
+  | 'sprint_completed'
+  | 'sprint_abandoned'
+  | 'badge_earned'
+  | 'investment_saved'
+  | 'investment_deleted'
+  | 'plan_saved'
+  | 'plan_deleted';
+
+export interface ActivityEvent {
+  id: string;
+  owner_type: OwnerType;
+  owner_id: string;
+  event_type: ActivityEventType;
+  metadata: Record<string, string | number | boolean | null> | null;
   created_at: string;
 }
 
@@ -102,7 +163,11 @@ export interface NotificationPreferences {
   email_reminders: boolean;
   reminder_days_before: number;
   weekly_summary: boolean;
+  monthly_report: boolean;
+  detox_reminders: boolean;
+  milestone_alerts: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export interface Investment {
@@ -134,6 +199,7 @@ export interface DebtInput {
 
 export interface MonthlyPayment {
   debt_id: string;
+  debt_name: string;
   payment_cents: number;
   principal_cents: number;
   interest_cents: number;
@@ -188,12 +254,13 @@ export interface Database {
       };
       plans: {
         Row: Plan;
-        Insert: Omit<Plan, 'id' | 'created_at' | 'updated_at' | 'is_active' | 'extra_payment_cents'> & {
+        Insert: Omit<Plan, 'id' | 'created_at' | 'updated_at' | 'is_active' | 'extra_payment_cents' | 'name'> & {
           id?: string;
           created_at?: string;
           updated_at?: string;
           is_active?: boolean;
           extra_payment_cents?: number;
+          name?: string;
         };
         Update: Partial<Omit<Plan, 'id' | 'created_at'>>;
       };
@@ -207,9 +274,11 @@ export interface Database {
       };
       payments: {
         Row: Payment;
-        Insert: Omit<Payment, 'id' | 'created_at'> & {
+        Insert: Omit<Payment, 'id' | 'created_at' | 'note' | 'balance_delta_cents'> & {
           id?: string;
           created_at?: string;
+          note?: string | null;
+          balance_delta_cents?: number;
         };
         Update: Partial<Omit<Payment, 'id' | 'created_at'>>;
       };
@@ -232,13 +301,8 @@ export interface Database {
       };
       notification_preferences: {
         Row: NotificationPreferences;
-        Insert: Omit<NotificationPreferences, 'id' | 'created_at' | 'email_reminders' | 'reminder_days_before' | 'weekly_summary'> & {
-          id?: string;
-          created_at?: string;
-          email_reminders?: boolean;
-          reminder_days_before?: number;
-          weekly_summary?: boolean;
-        };
+        Insert: Pick<NotificationPreferences, 'user_id'> &
+          Partial<Omit<NotificationPreferences, 'user_id'>>;
         Update: Partial<Omit<NotificationPreferences, 'id' | 'created_at'>>;
       };
       investments: {
@@ -249,6 +313,14 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Omit<Investment, 'id' | 'created_at'>>;
+      };
+      activity_events: {
+        Row: ActivityEvent;
+        Insert: Omit<ActivityEvent, 'id' | 'created_at'> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<ActivityEvent, 'id' | 'created_at'>>;
       };
     };
   };

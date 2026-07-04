@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import {
   AreaChart,
   Area,
@@ -34,37 +35,40 @@ function formatDate(date: Date | string): string {
   });
 }
 
-export function InvestmentGrowthChart({
+export const InvestmentGrowthChart = memo(function InvestmentGrowthChart({
   schedule,
   showContributions = true,
   showRealBalance = false,
   maxMonths,
 }: InvestmentGrowthChartProps) {
-  // Sample data points for readability (every 12 months for long projections)
-  const sampleInterval = schedule.length > 60 ? 12 : schedule.length > 24 ? 6 : 1;
-  const sampledSchedule = schedule.filter((_, i) => i % sampleInterval === 0 || i === schedule.length - 1);
-  const displaySchedule = maxMonths ? sampledSchedule.slice(0, maxMonths) : sampledSchedule;
+  const data = useMemo(() => {
+    // Sample data points for readability (every 12 months for long projections)
+    const sampleInterval = schedule.length > 60 ? 12 : schedule.length > 24 ? 6 : 1;
+    const sampledSchedule = schedule.filter((_, i) => i % sampleInterval === 0 || i === schedule.length - 1);
+    const displaySchedule = maxMonths ? sampledSchedule.slice(0, maxMonths) : sampledSchedule;
 
-  const data = displaySchedule.map((month) => ({
-    date: formatDate(month.date),
-    balance: month.balance_cents / 100,
-    contributions: month.cumulative_contributions_cents / 100,
-    growth: month.cumulative_interest_cents / 100,
-    realBalance: month.real_balance_cents / 100,
-  }));
+    const points = displaySchedule.map((month) => ({
+      date: formatDate(month.date),
+      balance: month.balance_cents / 100,
+      contributions: month.cumulative_contributions_cents / 100,
+      growth: month.cumulative_interest_cents / 100,
+      realBalance: month.real_balance_cents / 100,
+    }));
 
-  // Add starting point
-  if (schedule.length > 0) {
-    const firstMonth = schedule[0];
-    const startingBalance = firstMonth.balance_cents - firstMonth.interest_earned_cents - firstMonth.contribution_cents;
-    data.unshift({
-      date: 'Start',
-      balance: startingBalance / 100,
-      contributions: startingBalance / 100,
-      growth: 0,
-      realBalance: startingBalance / 100,
-    });
-  }
+    // Add starting point
+    if (schedule.length > 0) {
+      const firstMonth = schedule[0];
+      const startingBalance = firstMonth.balance_cents - firstMonth.interest_earned_cents - firstMonth.contribution_cents;
+      points.unshift({
+        date: 'Start',
+        balance: startingBalance / 100,
+        contributions: startingBalance / 100,
+        growth: 0,
+        realBalance: startingBalance / 100,
+      });
+    }
+    return points;
+  }, [schedule, maxMonths]);
 
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -174,4 +178,4 @@ export function InvestmentGrowthChart({
       </AreaChart>
     </ResponsiveContainer>
   );
-}
+});

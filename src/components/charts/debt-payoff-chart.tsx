@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import {
   AreaChart,
   Area,
@@ -31,22 +32,28 @@ function formatDate(date: Date | string): string {
   });
 }
 
-export function DebtPayoffChart({ schedule, maxMonths = 24 }: DebtPayoffChartProps) {
-  const data = schedule.slice(0, maxMonths).map((month) => ({
-    month: formatDate(month.date),
-    remaining: month.total_remaining_cents / 100,
-    payment: month.total_payment_cents / 100,
-  }));
+export const DebtPayoffChart = memo(function DebtPayoffChart({
+  schedule,
+  maxMonths = 24,
+}: DebtPayoffChartProps) {
+  const data = useMemo(() => {
+    const points = schedule.slice(0, maxMonths).map((month) => ({
+      month: formatDate(month.date),
+      remaining: month.total_remaining_cents / 100,
+      payment: month.total_payment_cents / 100,
+    }));
 
-  // Add starting point
-  if (schedule.length > 0) {
-    const startingBalance = schedule[0].total_remaining_cents + schedule[0].total_payment_cents;
-    data.unshift({
-      month: 'Start',
-      remaining: startingBalance / 100,
-      payment: 0,
-    });
-  }
+    // Add starting point
+    if (schedule.length > 0) {
+      const startingBalance = schedule[0].total_remaining_cents + schedule[0].total_payment_cents;
+      points.unshift({
+        month: 'Start',
+        remaining: startingBalance / 100,
+        payment: 0,
+      });
+    }
+    return points;
+  }, [schedule, maxMonths]);
 
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -97,4 +104,4 @@ export function DebtPayoffChart({ schedule, maxMonths = 24 }: DebtPayoffChartPro
       </AreaChart>
     </ResponsiveContainer>
   );
-}
+});

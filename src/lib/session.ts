@@ -99,7 +99,7 @@ export async function mergeSessionToUser(sessionId: string, userId: string): Pro
   const supabase = await createClient();
 
   // Update all data from session to user
-  const tables = ['debts', 'plans', 'payments', 'detox_sprints'] as const;
+  const tables = ['debts', 'plans', 'payments', 'detox_sprints', 'investments', 'activity_events'] as const;
 
   for (const table of tables) {
     await supabase

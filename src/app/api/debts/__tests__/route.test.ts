@@ -49,7 +49,7 @@ jest.mock('@/lib/supabase/server', () => ({
             },
           };
         },
-        insert: (data: unknown) => {
+        insert: (data: Record<string, unknown>) => {
           mockInsert(data);
           return {
             select: () => ({

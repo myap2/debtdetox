@@ -1,10 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -13,11 +22,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Calculator, TrendingUp, DollarSign, Percent } from 'lucide-react';
+import { Calculator, TrendingUp, DollarSign, Percent, BookmarkPlus, X } from 'lucide-react';
+import { toast } from 'sonner';
 import { InvestmentGrowthChart } from '@/components/charts/investment-growth-chart';
 import { useQuickProjection } from '@/hooks/use-investment-projection';
+import { useCreateInvestment, useUpdateInvestment } from '@/hooks/use-investments';
 import type { TaxStatus } from '@/lib/investment-engine';
 import { INVESTMENT_DEFAULTS } from '@/lib/investment-engine';
+import type { Investment } from '@/types/database';
+
+const AUTOSAVE_DELAY_MS = 1200;
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -27,16 +41,43 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
-export function InvestmentCalculator() {
-  const [initialBalance, setInitialBalance] = useState('10000');
-  const [monthlyContribution, setMonthlyContribution] = useState('500');
-  const [annualReturn, setAnnualReturn] = useState('7');
-  const [years, setYears] = useState('10');
-  const [taxStatus, setTaxStatus] = useState<TaxStatus>('taxable');
-  const [taxRate, setTaxRate] = useState('25');
-  const [inflationRate, setInflationRate] = useState('3');
+interface InvestmentCalculatorProps {
+  /** Saved profile whose values seed the calculator; edits autosave to it. */
+  profile?: Investment | null;
+  onProfileSaved?: (profile: Investment) => void;
+  onClearProfile?: () => void;
+}
+
+export function InvestmentCalculator({
+  profile = null,
+  onProfileSaved,
+  onClearProfile,
+}: InvestmentCalculatorProps) {
+  const [initialBalance, setInitialBalance] = useState(
+    profile ? (profile.initial_balance_cents / 100).toString() : '10000'
+  );
+  const [monthlyContribution, setMonthlyContribution] = useState(
+    profile ? (profile.monthly_contribution_cents / 100).toString() : '500'
+  );
+  const [annualReturn, setAnnualReturn] = useState(
+    profile ? (profile.annual_return_bps / 100).toString() : '7'
+  );
+  const [years, setYears] = useState(profile?.target_years?.toString() ?? '10');
+  const [taxStatus, setTaxStatus] = useState<TaxStatus>(profile?.tax_status ?? 'taxable');
+  const [taxRate, setTaxRate] = useState(
+    profile ? (profile.tax_rate_bps / 100).toString() : '25'
+  );
+  const [inflationRate, setInflationRate] = useState(
+    profile ? (profile.inflation_rate_bps / 100).toString() : '3'
+  );
   const [showInflation, setShowInflation] = useState(true);
   const [showTaxes, setShowTaxes] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  const createInvestment = useCreateInvestment();
+  const updateInvestment = useUpdateInvestment();
 
   const investment = {
     initial_balance_cents: Math.round(parseFloat(initialBalance || '0') * 100),
@@ -64,17 +105,108 @@ export function InvestmentCalculator() {
     setTaxStatus(preset.tax_status);
   }
 
+  function buildProfilePayload() {
+    return {
+      initial_balance_cents: investment.initial_balance_cents,
+      monthly_contribution_cents: investment.monthly_contribution_cents,
+      annual_return_bps: investment.annual_return_bps,
+      tax_status: taxStatus,
+      tax_rate_bps: investment.tax_rate_bps,
+      inflation_rate_bps: investment.inflation_rate_bps,
+      target_years: Math.max(1, parseInt(years || '10', 10)),
+    };
+  }
+
+  // Autosave edits back to the loaded profile, debounced. The ref skips the
+  // initial render so loading a profile doesn't immediately write it back.
+  const skipNextAutosave = useRef(true);
+  const profileId = profile?.id;
+  useEffect(() => {
+    if (!profileId) return;
+    if (skipNextAutosave.current) {
+      skipNextAutosave.current = false;
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      updateInvestment.mutate(
+        { id: profileId, investment: buildProfilePayload() },
+        {
+          onSuccess: () => setLastSavedAt(new Date()),
+          onError: () => toast.error('Failed to save profile changes'),
+        }
+      );
+    }, AUTOSAVE_DELAY_MS);
+
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileId, initialBalance, monthlyContribution, annualReturn, years, taxStatus, taxRate, inflationRate]);
+
+  async function handleSaveAsProfile(event: React.FormEvent) {
+    event.preventDefault();
+    if (!newProfileName.trim()) {
+      toast.error('Profile name is required');
+      return;
+    }
+
+    try {
+      const saved = await createInvestment.mutateAsync({
+        name: newProfileName.trim(),
+        type: 'custom',
+        ...buildProfilePayload(),
+      });
+      setSavingProfile(false);
+      setNewProfileName('');
+      toast.success('Profile saved');
+      onProfileSaved?.(saved);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save profile');
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5" />
-            Investment Calculator
-          </CardTitle>
-          <CardDescription>
-            Project your investment growth with compound interest
-          </CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Calculator className="h-5 w-5" />
+                Investment Calculator
+              </CardTitle>
+              <CardDescription>
+                Project your investment growth with compound interest
+              </CardDescription>
+            </div>
+            {profile ? (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="max-w-48 truncate">
+                  {profile.name}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {updateInvestment.isPending
+                    ? 'Saving...'
+                    : lastSavedAt
+                      ? `Saved ${lastSavedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                      : 'Changes save automatically'}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClearProfile}
+                  aria-label="Unload profile"
+                  title="Unload profile"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setSavingProfile(true)}>
+                <BookmarkPlus className="mr-2 h-4 w-4" />
+                Save as Profile
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Investment Inputs */}
@@ -331,6 +463,40 @@ export function InvestmentCalculator() {
           </Card>
         </>
       )}
+
+      {/* Save as Profile dialog */}
+      <Dialog open={savingProfile} onOpenChange={setSavingProfile}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save as Profile</DialogTitle>
+            <DialogDescription>
+              Saves the current calculator inputs so you can reload them anytime from
+              the Profiles tab.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveAsProfile} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name">Profile Name</Label>
+              <Input
+                id="profile-name"
+                value={newProfileName}
+                onChange={(e) => setNewProfileName(e.target.value)}
+                placeholder="e.g., Retirement plan"
+                maxLength={100}
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSavingProfile(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createInvestment.isPending}>
+                {createInvestment.isPending ? 'Saving...' : 'Save Profile'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

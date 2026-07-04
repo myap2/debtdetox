@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getOrCreateSession } from '@/lib/session';
+import { logActivity } from '@/lib/activity';
 import { z } from 'zod';
 
 const createInvestmentSchema = z.object({
@@ -96,6 +97,11 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    await logActivity(session, 'investment_saved', {
+      investment_id: data.id,
+      investment_name: data.name,
+    });
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
