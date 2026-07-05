@@ -170,7 +170,13 @@ Tests live in `__tests__/` directories beside the code. Component tests use the 
 
 The required PR gate is `.github/workflows/ci.yml`. It runs lint, `test:unit`, `test:api`, `build`, API smoke checks, and Playwright UI smoke checks in the `quality-gate` job. Smoke tests use `SKIP_SUPABASE_AUTH_REFRESH=true` and test/dummy Supabase environment variables so the merge gate does not depend on live Supabase.
 
-To run smoke checks locally, build and start the app first:
+For first-time UI smoke runs, install the Chromium browser used by Playwright:
+
+```bash
+npx playwright install chromium
+```
+
+To run smoke checks locally, use two terminals. In the first terminal, build and start the app:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
@@ -182,14 +188,18 @@ NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
 NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key \
 SKIP_SUPABASE_AUTH_REFRESH=true \
 npm run start:ci
+```
 
+Leave `npm run start:ci` running, then run the smoke checks in a second terminal:
+
+```bash
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
 SMOKE_BASE_URL=http://127.0.0.1:3000 \
 npm run test:smoke
 ```
 
 ```bash
-npm test                          # everything
+npm test                          # all Jest tests
 npm test -- src/app/api/payments  # one area
 ```
 
