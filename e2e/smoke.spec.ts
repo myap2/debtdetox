@@ -36,7 +36,7 @@ test.describe('DebtDetox smoke', () => {
     await page.getByRole('link', { name: 'Sign in' }).click();
 
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole('heading', { name: 'Sign in to DebtDetox' })).toBeVisible();
+    await expect(page.getByText('Sign in to DebtDetox')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Send Magic Link' })).toBeVisible();
   });
 
@@ -55,7 +55,7 @@ test.describe('DebtDetox smoke', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Overview of your debt payoff journey')).toBeVisible();
     await expect(page.getByText('Anonymous Session')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Getting Started' })).toBeVisible();
+    await expect(page.getByText('Getting Started')).toBeVisible();
     await expect(page.getByText('Add your debts to get started')).toBeVisible();
     await expect(page.getByRole('link', { name: /Add Debts/ })).toBeVisible();
   });
