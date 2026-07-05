@@ -58,6 +58,10 @@ async function checkInlineInvestmentProjection() {
   if (typeof body.final_balance_cents !== 'number' || body.final_balance_cents <= 100000) {
     throw new Error('Investment projection smoke check expected growth above the initial balance');
   }
+
+  if (typeof body.total_interest_cents !== 'number' || body.total_interest_cents <= 0) {
+    throw new Error('Investment projection smoke check expected positive investment growth');
+  }
 }
 
 async function main() {
