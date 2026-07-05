@@ -6,10 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:ci": "next start -H 127.0.0.1 -p 3000",
     "lint": "eslint",
     "test": "jest",
+    "test:unit": "jest --runInBand src/components src/hooks src/lib",
+    "test:api": "jest --runInBand src/app/api",
+    "test:ci": "npm run test:unit && npm run test:api",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:smoke:api": "node scripts/smoke-api.mjs",
+    "test:smoke:ui": "playwright test",
+    "test:smoke": "npm run test:smoke:api && npm run test:smoke:ui"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -40,6 +47,7 @@
     "zod": "^4.2.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
