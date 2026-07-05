@@ -8,7 +8,7 @@ export async function GET() {
     const supabase = await createClient();
 
     // Fetch all user data
-    const [debtsResult, plansResult, paymentsResult, sprintsResult] = await Promise.all([
+    const [debtsResult, plansResult, paymentsResult, sprintsResult, investmentsResult, activityResult] = await Promise.all([
       supabase
         .from('debts')
         .select('*')
@@ -29,6 +29,16 @@ export async function GET() {
         .select('*, detox_wins(*)')
         .eq('owner_type', session.type)
         .eq('owner_id', session.id),
+      supabase
+        .from('investments')
+        .select('*')
+        .eq('owner_type', session.type)
+        .eq('owner_id', session.id),
+      supabase
+        .from('activity_events')
+        .select('*')
+        .eq('owner_type', session.type)
+        .eq('owner_id', session.id),
     ]);
 
     const exportData = {
@@ -39,6 +49,8 @@ export async function GET() {
         plans: plansResult.data ?? [],
         payments: paymentsResult.data ?? [],
         detox_sprints: sprintsResult.data ?? [],
+        investments: investmentsResult.data ?? [],
+        activity_events: activityResult.data ?? [],
       },
     };
 

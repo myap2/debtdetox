@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -11,16 +12,20 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Pencil, Trash } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash, DollarSign, History } from 'lucide-react';
 import { DebtDialog } from './debt-dialog';
+import { PaymentDialog } from '@/components/payments/payment-dialog';
 import { toast } from 'sonner';
-import { useDebts, useDeleteDebt } from '@/hooks/use-debts';
+import { useDebts } from '@/hooks/use-debts';
+import { useUndoableDelete } from '@/hooks/use-undoable-delete';
+import { formatCurrency, formatPercent } from '@/lib/format';
 import type { Debt, DebtType } from '@/types/database';
 
 const debtTypeLabels: Record<DebtType, string> = {
@@ -33,32 +38,25 @@ const debtTypeLabels: Record<DebtType, string> = {
   other: 'Other',
 };
 
-function formatCurrency(cents: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(cents / 100);
-}
-
-function formatPercent(bps: number): string {
-  return `${(bps / 100).toFixed(2)}%`;
+async function deleteDebtRequest(debt: Debt) {
+  const response = await fetch(`/api/debts/${debt.id}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('Failed to delete debt');
+  }
 }
 
 export function DebtList() {
   const { data: debts = [], isLoading, error } = useDebts();
-  const deleteDebt = useDeleteDebt();
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
+  const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
 
-  async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this debt?')) return;
-
-    try {
-      await deleteDebt.mutateAsync(id);
-      toast.success('Debt deleted');
-    } catch {
-      toast.error('Failed to delete debt');
-    }
-  }
+  const { deleteWithUndo } = useUndoableDelete<Debt>({
+    queryKey: ['debts'],
+    getId: (debt) => debt.id,
+    deleteFn: deleteDebtRequest,
+    invalidateKeys: [['payoffPlan'], ['payments'], ['analytics'], ['activity']],
+    entityLabel: 'debt',
+  });
 
   if (error) {
     toast.error('Failed to load debts');
@@ -66,8 +64,10 @@ export function DebtList() {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border p-8 text-center text-muted-foreground">
-        Loading debts...
+      <div className="space-y-2 rounded-lg border p-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-12 w-full" />
+        ))}
       </div>
     );
   }
@@ -85,7 +85,7 @@ export function DebtList() {
 
   return (
     <>
-      <div className="rounded-lg border">
+      <div className="overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -95,13 +95,22 @@ export function DebtList() {
               <TableHead className="text-right">APR</TableHead>
               <TableHead className="text-right">Min Payment</TableHead>
               <TableHead className="text-right">Due Day</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
+              <TableHead className="w-[110px]">
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {debts.map((debt) => (
               <TableRow key={debt.id}>
-                <TableCell className="font-medium">{debt.name}</TableCell>
+                <TableCell className="font-medium">
+                  <Link
+                    href={`/debts/${debt.id}`}
+                    className="hover:underline focus-visible:underline"
+                  >
+                    {debt.name}
+                  </Link>
+                </TableCell>
                 <TableCell>
                   <Badge variant="secondary">
                     {debtTypeLabels[debt.type as DebtType]}
@@ -120,26 +129,51 @@ export function DebtList() {
                   {debt.due_day ?? '-'}
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditingDebt(debt)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => handleDelete(debt.id)}
-                      >
-                        <Trash className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setPayingDebt(debt)}
+                      aria-label={`Record payment for ${debt.name}`}
+                      title="Record payment"
+                    >
+                      <DollarSign className="h-4 w-4" />
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label={`Actions for ${debt.name}`}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setPayingDebt(debt)}>
+                          <DollarSign className="mr-2 h-4 w-4" />
+                          Record Payment
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/debts/${debt.id}`}>
+                            <History className="mr-2 h-4 w-4" />
+                            Payment History
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setEditingDebt(debt)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() =>
+                            deleteWithUndo(debt, {
+                              description: `${debt.name} and its payment history will be removed`,
+                            })
+                          }
+                        >
+                          <Trash className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -163,6 +197,13 @@ export function DebtList() {
         onOpenChange={(open) => !open && setEditingDebt(null)}
         debt={editingDebt}
         onSuccess={() => setEditingDebt(null)}
+      />
+
+      <PaymentDialog
+        open={!!payingDebt}
+        onOpenChange={(open) => !open && setPayingDebt(null)}
+        debt={payingDebt}
+        onSuccess={() => setPayingDebt(null)}
       />
     </>
   );

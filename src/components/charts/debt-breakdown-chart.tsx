@@ -1,6 +1,7 @@
 'use client';
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { memo, useMemo } from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import type { Debt } from '@/types/database';
 
 interface DebtBreakdownChartProps {
@@ -26,14 +27,20 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
-export function DebtBreakdownChart({ debts }: DebtBreakdownChartProps) {
-  const data = debts.map((debt) => ({
-    name: debt.name,
-    value: debt.balance_cents / 100,
-    apr: debt.apr_bps / 100,
-  }));
+export const DebtBreakdownChart = memo(function DebtBreakdownChart({
+  debts,
+}: DebtBreakdownChartProps) {
+  const data = useMemo(
+    () =>
+      debts.map((debt) => ({
+        name: debt.name,
+        value: debt.balance_cents / 100,
+        apr: debt.apr_bps / 100,
+      })),
+    [debts]
+  );
 
-  const totalDebt = debts.reduce((sum, d) => sum + d.balance_cents, 0);
+  const totalDebt = useMemo(() => debts.reduce((sum, d) => sum + d.balance_cents, 0), [debts]);
 
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -84,4 +91,4 @@ export function DebtBreakdownChart({ debts }: DebtBreakdownChartProps) {
       </PieChart>
     </ResponsiveContainer>
   );
-}
+});

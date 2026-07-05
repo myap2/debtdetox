@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,14 +23,14 @@ import { toast } from 'sonner';
 import { useCreateDebt, useUpdateDebt } from '@/hooks/use-debts';
 import type { Debt, DebtType } from '@/types/database';
 
-const debtTypes: { value: DebtType; label: string }[] = [
-  { value: 'credit_card', label: 'Credit Card' },
-  { value: 'student_loan', label: 'Student Loan' },
-  { value: 'auto', label: 'Auto Loan' },
-  { value: 'mortgage', label: 'Mortgage' },
-  { value: 'personal', label: 'Personal Loan' },
-  { value: 'medical', label: 'Medical Debt' },
-  { value: 'other', label: 'Other' },
+const debtTypes: { value: DebtType; label: string; defaultApr: number; minPaymentPercent: number }[] = [
+  { value: 'credit_card', label: 'Credit Card', defaultApr: 22.99, minPaymentPercent: 2 },
+  { value: 'student_loan', label: 'Student Loan', defaultApr: 6.5, minPaymentPercent: 1 },
+  { value: 'auto', label: 'Auto Loan', defaultApr: 7.0, minPaymentPercent: 2.5 },
+  { value: 'mortgage', label: 'Mortgage', defaultApr: 6.5, minPaymentPercent: 0.5 },
+  { value: 'personal', label: 'Personal Loan', defaultApr: 12.0, minPaymentPercent: 3 },
+  { value: 'medical', label: 'Medical Debt', defaultApr: 0, minPaymentPercent: 5 },
+  { value: 'other', label: 'Other', defaultApr: 10.0, minPaymentPercent: 2 },
 ];
 
 interface DebtFormData {
@@ -51,6 +52,7 @@ export function DebtForm({ debt, onSuccess, onCancel }: DebtFormProps) {
   const createDebt = useCreateDebt();
   const updateDebt = useUpdateDebt();
   const isSubmitting = createDebt.isPending || updateDebt.isPending;
+  const isEditing = !!debt;
 
   const form = useForm<DebtFormData>({
     defaultValues: {
@@ -62,6 +64,56 @@ export function DebtForm({ debt, onSuccess, onCancel }: DebtFormProps) {
       dueDay: debt?.due_day?.toString() ?? '',
     },
   });
+
+  const watchType = form.watch('type');
+  const watchBalance = form.watch('balance');
+
+  // Set default APR on initial load for new debts
+  useEffect(() => {
+    if (!isEditing) {
+      const typeConfig = debtTypes.find(t => t.value === 'credit_card');
+      if (typeConfig && !form.getValues('apr')) {
+        form.setValue('apr', typeConfig.defaultApr.toString());
+      }
+    }
+  }, [isEditing, form]);
+
+  // Auto-fill APR when type changes (only for new debts, and only if APR is empty or was auto-filled)
+  function handleTypeChange(newType: DebtType) {
+    form.setValue('type', newType);
+
+    if (!isEditing) {
+      const typeConfig = debtTypes.find(t => t.value === newType);
+      if (typeConfig) {
+        // Always set default APR when type changes for new debts
+        form.setValue('apr', typeConfig.defaultApr.toString());
+
+        // Recalculate min payment if balance exists
+        const balance = parseFloat(watchBalance);
+        if (!isNaN(balance) && balance > 0) {
+          const minPayment = Math.max(25, balance * (typeConfig.minPaymentPercent / 100));
+          form.setValue('minPayment', minPayment.toFixed(2));
+        }
+      }
+    }
+  }
+
+  // Auto-calculate minimum payment when balance changes (only for new debts)
+  function handleBalanceChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    form.setValue('balance', value);
+
+    if (!isEditing) {
+      const balance = parseFloat(value);
+      const typeConfig = debtTypes.find(t => t.value === watchType);
+
+      if (!isNaN(balance) && balance > 0 && typeConfig) {
+        // Calculate minimum payment (at least $25 for most debts)
+        const minPayment = Math.max(25, balance * (typeConfig.minPaymentPercent / 100));
+        form.setValue('minPayment', minPayment.toFixed(2));
+      }
+    }
+  }
 
   async function onSubmit(data: DebtFormData) {
     // Validate
@@ -140,7 +192,7 @@ export function DebtForm({ debt, onSuccess, onCancel }: DebtFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={(value) => handleTypeChange(value as DebtType)} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select debt type" />
@@ -178,6 +230,7 @@ export function DebtForm({ debt, onSuccess, onCancel }: DebtFormProps) {
                       placeholder="0.00"
                       className="pl-7"
                       {...field}
+                      onChange={handleBalanceChange}
                     />
                   </div>
                 </FormControl>

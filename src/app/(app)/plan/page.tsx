@@ -17,9 +17,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CalendarDays, DollarSign, TrendingDown, RefreshCw, BarChart3 } from 'lucide-react';
+import { CalendarDays, DollarSign, TrendingDown, RefreshCw, BarChart3, BookmarkPlus } from 'lucide-react';
 import Link from 'next/link';
 import { DebtPayoffChart, StrategyComparisonChart } from '@/components/charts';
+import { SavePlanDialog } from '@/components/plans/save-plan-dialog';
 import type { PayoffResult, PayoffStrategy } from '@/lib/payoff-engine';
 
 interface ComparisonResult {
@@ -49,6 +50,8 @@ export default function PlanPage() {
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasDebts, setHasDebts] = useState<boolean | null>(null);
+  const [activeStrategy, setActiveStrategy] = useState<PayoffStrategy>('avalanche');
+  const [savingPlan, setSavingPlan] = useState(false);
 
   async function generatePlan() {
     setIsLoading(true);
@@ -188,6 +191,7 @@ export default function PlanPage() {
             <CardDescription>First 12 months of payments</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -222,6 +226,7 @@ export default function PlanPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
             {result.schedule.length > 12 && (
               <p className="mt-4 text-center text-sm text-muted-foreground">
                 + {result.schedule.length - 12} more months
@@ -262,7 +267,11 @@ export default function PlanPage() {
       />
 
       <div className="flex-1 p-6">
-        <Tabs defaultValue="avalanche" className="space-y-6">
+        <Tabs
+          value={activeStrategy}
+          onValueChange={(value) => setActiveStrategy(value as PayoffStrategy)}
+          className="space-y-6"
+        >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <TabsList>
               <TabsTrigger value="avalanche">
@@ -301,8 +310,18 @@ export default function PlanPage() {
                   className="w-28 pl-7"
                 />
               </div>
-              <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isLoading}>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={isLoading}
+                aria-label="Recalculate plan"
+              >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button onClick={() => setSavingPlan(true)} disabled={isLoading || !comparison}>
+                <BookmarkPlus className="mr-2 h-4 w-4" />
+                Save Plan
               </Button>
             </div>
           </div>
@@ -390,6 +409,13 @@ export default function PlanPage() {
           ) : null}
         </Tabs>
       </div>
+
+      <SavePlanDialog
+        open={savingPlan}
+        onOpenChange={setSavingPlan}
+        strategy={activeStrategy}
+        extraPaymentCents={Math.round(parseFloat(extraPayment || '0') * 100)}
+      />
     </div>
   );
 }

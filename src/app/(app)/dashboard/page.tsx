@@ -1,14 +1,22 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { ArrowRight, CreditCard, Target, TrendingDown, CheckCircle2, BarChart3 } from 'lucide-react';
 import { DebtPayoffChart, DebtBreakdownChart } from '@/components/charts';
 import { useDebts } from '@/hooks/use-debts';
 import { usePayoffPlan } from '@/hooks/use-payoff-plan';
+
+// Analytics (with its chart bundle) loads lazily so it doesn't block first paint
+const AnalyticsSection = dynamic(
+  () => import('@/components/analytics/analytics-section').then((m) => m.AnalyticsSection),
+  { ssr: false, loading: () => <Skeleton className="mt-6 h-64" /> }
+);
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -125,6 +133,9 @@ export default function DashboardPage() {
             </Card>
           </div>
         )}
+
+        {/* Payment History & Analytics */}
+        {hasDebts && <AnalyticsSection />}
 
         {/* Progress or Getting Started */}
         {hasDebts && avalancheResult ? (

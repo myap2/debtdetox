@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getOrCreateSession } from '@/lib/session';
+import { logActivity } from '@/lib/activity';
 import { z } from 'zod';
 
 const createSprintSchema = z.object({
@@ -86,6 +87,12 @@ export async function POST(request: Request) {
       console.error('Error creating sprint:', error);
       return NextResponse.json({ error: 'Failed to create sprint' }, { status: 500 });
     }
+
+    await logActivity(session, 'sprint_started', {
+      sprint_id: data.id,
+      start_date: data.start_date,
+      end_date: data.end_date,
+    });
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {

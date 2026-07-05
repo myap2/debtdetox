@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getOrCreateSession } from '@/lib/session';
+import { logActivity } from '@/lib/activity';
 import { z } from 'zod';
 
 const createDebtSchema = z.object({
@@ -70,6 +71,12 @@ export async function POST(request: Request) {
       console.error('Error creating debt:', error);
       return NextResponse.json({ error: 'Failed to create debt' }, { status: 500 });
     }
+
+    await logActivity(session, 'debt_added', {
+      debt_id: data.id,
+      debt_name: data.name,
+      balance_cents: data.balance_cents,
+    });
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {

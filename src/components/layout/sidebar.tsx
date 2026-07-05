@@ -12,6 +12,8 @@ import {
   Settings,
   LogOut,
   LogIn,
+  Bookmark,
+  History,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -21,11 +23,18 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/debts', label: 'Debts', icon: CreditCard },
   { href: '/plan', label: 'Payoff Plan', icon: Target },
+  { href: '/plans', label: 'Saved Plans', icon: Bookmark },
   { href: '/invest', label: 'Invest', icon: TrendingUp },
   { href: '/detox', label: 'Detox Sprint', icon: Flame },
+  { href: '/activity', label: 'Activity', icon: History },
 ];
 
-export function Sidebar() {
+interface SidebarNavProps {
+  /** Called after a link is chosen (used to close the mobile drawer). */
+  onNavigate?: () => void;
+}
+
+export function SidebarNav({ onNavigate }: SidebarNavProps) {
   const pathname = usePathname();
   const { user, isLoading, isAuthenticated } = useSession();
 
@@ -35,16 +44,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r bg-sidebar">
-      {/* Logo */}
-      <div className="flex h-16 items-center px-6">
-        <Link href="/" className="text-xl font-bold text-sidebar-foreground">
-          DebtDetox
-        </Link>
-      </div>
-
-      <Separator />
-
+    <>
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-4">
         {navItems.map((item) => {
@@ -53,6 +53,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                 isActive
@@ -73,6 +74,7 @@ export function Sidebar() {
       <div className="p-4 space-y-2">
         <Link
           href="/settings"
+          onClick={onNavigate}
           className={cn(
             'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
             pathname === '/settings'
@@ -100,7 +102,7 @@ export function Sidebar() {
               </Button>
             </div>
           ) : (
-            <Link href="/login">
+            <Link href="/login" onClick={onNavigate}>
               <Button variant="ghost" className="w-full justify-start gap-3 px-3">
                 <LogIn className="h-4 w-4" />
                 Sign In
@@ -109,6 +111,23 @@ export function Sidebar() {
           )
         )}
       </div>
+    </>
+  );
+}
+
+export function Sidebar() {
+  return (
+    <aside className="hidden h-screen w-64 flex-col border-r bg-sidebar lg:flex">
+      {/* Logo */}
+      <div className="flex h-16 items-center px-6">
+        <Link href="/" className="text-xl font-bold text-sidebar-foreground">
+          DebtDetox
+        </Link>
+      </div>
+
+      <Separator />
+
+      <SidebarNav />
     </aside>
   );
 }

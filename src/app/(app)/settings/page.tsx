@@ -6,8 +6,8 @@ import { Header } from '@/components/layout/header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { NotificationSettings } from '@/components/settings/notification-settings';
 import {
   Dialog,
   DialogContent,
@@ -109,37 +109,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Notifications Section */}
-        {isAuthenticated && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Notifications</CardTitle>
-              <CardDescription>
-                Configure how you want to be notified
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Payment Reminders</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Get reminded before payment due dates
-                  </p>
-                </div>
-                <Checkbox defaultChecked />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Weekly Summary</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive a weekly progress report
-                  </p>
-                </div>
-                <Checkbox defaultChecked />
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {isAuthenticated && <NotificationSettings />}
 
         {/* Data Section */}
         <Card>

@@ -86,6 +86,20 @@ export async function DELETE() {
       .eq('owner_type', session.type)
       .eq('owner_id', session.id);
 
+    // Delete investments
+    await supabase
+      .from('investments')
+      .delete()
+      .eq('owner_type', session.type)
+      .eq('owner_id', session.id);
+
+    // Delete activity log
+    await supabase
+      .from('activity_events')
+      .delete()
+      .eq('owner_type', session.type)
+      .eq('owner_id', session.id);
+
     // If authenticated user, sign out and delete auth user
     if (session.type === 'user') {
       // Note: Deleting auth user requires admin privileges

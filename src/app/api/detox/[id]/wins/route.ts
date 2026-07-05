@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getOrCreateSession } from '@/lib/session';
+import { syncBadgeActivity } from '@/lib/activity';
 import { z } from 'zod';
 
 const createWinSchema = z.object({
@@ -61,6 +62,9 @@ export async function POST(
       console.error('Error creating win:', error);
       return NextResponse.json({ error: 'Failed to log win' }, { status: 500 });
     }
+
+    // Wins feed badge calculations (win count and savings badges)
+    await syncBadgeActivity(session);
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {

@@ -1,5 +1,6 @@
-import { screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import { render } from '@/test/test-utils';
+import { toast } from 'sonner';
 import { DebtList } from '../debt-list';
 import type { Debt } from '@/types/database';
 
@@ -20,10 +21,6 @@ jest.mock('../debt-dialog', () => ({
 // Mock fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
-
-// Mock window.confirm
-const mockConfirm = jest.fn();
-global.confirm = mockConfirm;
 
 const mockDebts: Debt[] = [
   {
@@ -64,12 +61,12 @@ describe('DebtList', () => {
   });
 
   describe('loading state', () => {
-    it('should show loading state initially', () => {
+    it('should show skeleton loaders initially', () => {
       // Don't resolve fetch immediately
       mockFetch.mockImplementation(() => new Promise(() => {}));
 
-      render(<DebtList />);
-      expect(screen.getByText(/loading debts/i)).toBeInTheDocument();
+      const { container } = render(<DebtList />);
+      expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
     });
   });
 
@@ -184,16 +181,18 @@ describe('DebtList', () => {
 
       expect(dataRows).toHaveLength(2);
 
-      // Each data row should have a button for actions
+      // Each data row has a record-payment button and an actions dropdown
       dataRows.forEach(row => {
-        expect(within(row).getByRole('button')).toBeInTheDocument();
+        expect(within(row).getAllByRole('button').length).toBeGreaterThanOrEqual(2);
+        expect(
+          within(row).getByRole('button', { name: /record payment/i })
+        ).toBeInTheDocument();
       });
     });
   });
 
   describe('error handling', () => {
     it('should show error toast when fetch fails', async () => {
-      const { toast } = require('sonner');
       mockFetch.mockResolvedValue({
         ok: false,
       });

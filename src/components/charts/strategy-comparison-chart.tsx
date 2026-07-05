@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import {
   BarChart,
   Bar,
@@ -25,7 +26,10 @@ function formatCurrency(cents: number): string {
   }).format(cents / 100);
 }
 
-export function StrategyComparisonChart({ avalanche, snowball }: StrategyComparisonChartProps) {
+export const StrategyComparisonChart = memo(function StrategyComparisonChart({
+  avalanche,
+  snowball,
+}: StrategyComparisonChartProps) {
   const data = [
     {
       name: 'Avalanche',
@@ -142,4 +146,4 @@ export function StrategyComparisonChart({ avalanche, snowball }: StrategyCompari
       </div>
     </div>
   );
-}
+});

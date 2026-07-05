@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getOrCreateSession } from '@/lib/session';
+import { logActivity, syncBadgeActivity } from '@/lib/activity';
 import { z } from 'zod';
 
 const updateSprintSchema = z.object({
@@ -57,7 +58,7 @@ export async function PATCH(
     // Verify ownership
     const { data: existing } = await supabase
       .from('detox_sprints')
-      .select('id')
+      .select('id, status')
       .eq('id', id)
       .eq('owner_type', session.type)
       .eq('owner_id', session.id)
@@ -77,6 +78,18 @@ export async function PATCH(
     if (error) {
       console.error('Error updating sprint:', error);
       return NextResponse.json({ error: 'Failed to update sprint' }, { status: 500 });
+    }
+
+    const newStatus = parsed.data.status;
+    if (newStatus && newStatus !== existing.status && newStatus !== 'active') {
+      await logActivity(
+        session,
+        newStatus === 'completed' ? 'sprint_completed' : 'sprint_abandoned',
+        { sprint_id: id }
+      );
+      if (newStatus === 'completed') {
+        await syncBadgeActivity(session);
+      }
     }
 
     return NextResponse.json(data);
