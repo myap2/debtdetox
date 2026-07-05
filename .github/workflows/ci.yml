@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    name: quality-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key
+      SKIP_SUPABASE_AUTH_REFRESH: true
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      SMOKE_BASE_URL: http://127.0.0.1:3000
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: API integration tests
+        run: npm run test:api
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Start built app
+        run: |
+          npm run start:ci > /tmp/debtdetox-next.log 2>&1 &
+          echo "NEXT_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for app
+        run: |
+          for attempt in {1..30}; do
+            if curl -fsS "$SMOKE_BASE_URL/api/health" >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/debtdetox-next.log
+          exit 1
+
+      - name: API smoke tests
+        run: npm run test:smoke:api
+
+      - name: UI smoke tests
+        run: npm run test:smoke:ui
+
+      - name: Stop built app
+        if: always()
+        run: |
+          if [ -n "${NEXT_PID:-}" ]; then
+            kill "$NEXT_PID" || true
+          fi
