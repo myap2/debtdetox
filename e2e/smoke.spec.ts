@@ -41,11 +41,22 @@ test.describe('DebtDetox smoke', () => {
   });
 
   test('renders the dashboard shell with empty anonymous state', async ({ page }) => {
+    const debtsResponse = page.waitForResponse(
+      (response) => response.url().includes('/api/debts') && response.status() === 200,
+    );
+    const planResponse = page.waitForResponse(
+      (response) => response.url().includes('/api/plans/generate') && response.status() === 400,
+    );
+
     await page.goto('/dashboard');
+    await debtsResponse;
+    await planResponse;
 
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Overview of your debt payoff journey')).toBeVisible();
+    await expect(page.getByText('Anonymous Session')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Getting Started' })).toBeVisible();
+    await expect(page.getByText('Add your debts to get started')).toBeVisible();
     await expect(page.getByRole('link', { name: /Add Debts/ })).toBeVisible();
   });
 });
