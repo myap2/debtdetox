@@ -9,9 +9,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev          # Start dev server at localhost:3000
 
 # Testing
-npm test             # Run all tests
-npm run test:watch   # Run tests in watch mode
+npm test                 # Run all Jest tests
+npm run test:unit        # Run unit/component/hook tests
+npm run test:api         # Run mocked API route integration tests
+npm run test:ci          # Run unit + API integration tests
+npm run test:watch       # Run tests in watch mode
 npm test -- path/to/test.test.ts  # Run a single test file
+
+# Smoke tests
+npm run test:smoke:api   # API smoke checks against a running app
+npm run test:smoke:ui    # Playwright UI smoke checks against a running app
+npm run test:smoke       # API + UI smoke checks
 
 # Build & Lint
 npm run build        # Production build

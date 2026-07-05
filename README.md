@@ -38,11 +38,16 @@ Track, plan, and pay off your debt faster. DebtDetox combines debt tracking, pay
 ### Commands
 
 ```bash
-npm run dev          # Start dev server at localhost:3000
-npm test             # Run all tests
-npm run test:watch   # Run tests in watch mode
-npm run build        # Production build
-npm run lint         # Run ESLint
+npm run dev              # Start dev server at localhost:3000
+npm run build            # Production build
+npm run lint             # Run ESLint
+npm test                 # Run all Jest tests
+npm run test:unit        # Run unit/component/hook tests
+npm run test:api         # Run mocked API route integration tests
+npm run test:ci          # Run unit + API integration tests
+npm run test:smoke:api   # Run API smoke checks against a running app
+npm run test:smoke:ui    # Run Playwright UI smoke checks against a running app
+npm run test:smoke       # Run API + UI smoke checks
 ```
 
 ## Features
@@ -162,6 +167,26 @@ Applied by `supabase/upgrades/001_complete_features.sql` (already included in `s
 ## Testing
 
 Tests live in `__tests__/` directories beside the code. Component tests use the custom render from `@/test/test-utils` (wraps in `QueryClientProvider`); API route tests use the stateful in-memory Supabase mock in `src/test/supabase-mock.ts`, which lets them assert on real balance mutations.
+
+The required PR gate is `.github/workflows/ci.yml`. It runs lint, `test:unit`, `test:api`, `build`, API smoke checks, and Playwright UI smoke checks in the `quality-gate` job. Smoke tests use `SKIP_SUPABASE_AUTH_REFRESH=true` and test/dummy Supabase environment variables so the merge gate does not depend on live Supabase.
+
+To run smoke checks locally, build and start the app first:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key \
+SKIP_SUPABASE_AUTH_REFRESH=true \
+npm run build
+
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 \
+NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key \
+SKIP_SUPABASE_AUTH_REFRESH=true \
+npm run start:ci
+
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 \
+SMOKE_BASE_URL=http://127.0.0.1:3000 \
+npm run test:smoke
+```
 
 ```bash
 npm test                          # everything
